@@ -329,8 +329,7 @@ function start-db-cluster() {
 
     ${RUNC_CMD} exec ${CENTRAL_NAME}-1 ${OVNCTL_PATH} --db-nb-addr=${central_1_ip} \
     --db-sb-addr=${central_1_ip} --db-nb-cluster-local-addr=${central_1_ip} \
-    --db-nb-cluster-local-proto=${REMOTE_PROT} \
-    --db-sb-cluster-local-addr=${central_1_ip} --db-sb-cluster-local-proto=${REMOTE_PROT} \
+    --db-sb-cluster-local-addr=${central_1_ip} \
     --ovn-nb-db-ssl-key=/data/${CENTRAL_NAME}/ovnnb-privkey.pem \
     $SSL_ARGS start_ovsdb
 
@@ -338,16 +337,12 @@ function start-db-cluster() {
     --db-sb-addr=${central_2_ip} \
     --db-nb-cluster-local-addr=${central_2_ip} --db-nb-cluster-remote-addr=${central_1_ip} \
     --db-sb-cluster-local-addr=${central_2_ip} --db-sb-cluster-remote-addr=${central_1_ip} \
-    --db-nb-cluster-local-proto=${REMOTE_PROT} --db-sb-cluster-local-proto=${REMOTE_PROT} \
-    --db-nb-cluster-remote-proto=${REMOTE_PROT} --db-sb-cluster-remote-proto=${REMOTE_PROT} \
     $SSL_ARGS start_ovsdb
 
     ${RUNC_CMD} exec ${CENTRAL_NAME}-3 ${OVNCTL_PATH} --db-nb-addr=${central_3_ip} \
     --db-sb-addr=${central_3_ip}  \
     --db-nb-cluster-local-addr=${central_3_ip} --db-nb-cluster-remote-addr=${central_1_ip} \
     --db-sb-cluster-local-addr=${central_3_ip} --db-sb-cluster-remote-addr=${central_1_ip} \
-    --db-nb-cluster-local-proto=${REMOTE_PROT} --db-sb-cluster-local-proto=${REMOTE_PROT} \
-    --db-nb-cluster-remote-proto=${REMOTE_PROT} --db-sb-cluster-remote-proto=${REMOTE_PROT} \
     $SSL_ARGS start_ovsdb
 
     # This can be improved.
