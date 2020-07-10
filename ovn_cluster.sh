@@ -525,10 +525,34 @@ ovn-nbctl lsp-add sw0 sw0-port4
 ovn-nbctl lsp-set-addresses sw0-port4 "50:54:00:00:00:06 dynamic"
 ovn-nbctl lsp-set-dhcpv4-options sw0-port4 \$CIDR_UUID
 
+ovn-nbctl lsp-add sw0 sw0-ext1
+ovn-nbctl lsp-set-addresses sw0-ext1 "50:54:00:00:00:10 10.0.0.10"
+ovn-nbctl lsp-set-type sw0-ext1 external
+
+ovn-nbctl ha-chassis-group-add hagrp1
+ovn-nbctl ha-chassis-group-add-chassis hagrp1 ovn-chassis-1 30
+ovn-nbctl ha-chassis-group-add-chassis hagrp1 ovn-chassis-2 20
+ovn-nbctl ha-chassis-group-add-chassis hagrp1 ovn-gw-1 10
+
+hagrp1_uuid=\$(ovn-nbctl --bare --columns _uuid list ha_chassis_group)
+ovn-nbctl set logical_switch_port sw0-ext1 ha_chassis_group=\$hagrp1_uuid
+
+ovn-nbctl lsp-add sw0 ln-sw0
+ovn-nbctl lsp-set-type ln-sw0 localnet
+ovn-nbctl lsp-set-addresses ln-sw0 unknown
+ovn-nbctl lsp-set-options ln-sw0 network_name=public
+ ovn-nbctl set logical_switch_port ln-sw0 tag=4
+
 # Create the second logical switch with one port
 ovn-nbctl ls-add sw1
 ovn-nbctl lsp-add sw1 sw1-port1
 ovn-nbctl lsp-set-addresses sw1-port1 "40:54:00:00:00:03 20.0.0.3 2000::3"
+
+ovn-nbctl lsp-add sw1 ln-sw1
+ovn-nbctl lsp-set-type ln-sw1 localnet
+ovn-nbctl lsp-set-addresses ln-sw1 unknown
+ovn-nbctl lsp-set-options ln-sw1 network_name=public
+ovn-nbctl set logical_switch_port ln-sw1 tag=5
 
 # Create a logical router and attach both logical switches
 ovn-nbctl lr-add lr0
@@ -550,6 +574,7 @@ ovn-nbctl lsp-add public public-lr0
 ovn-nbctl lsp-set-type public-lr0 router
 ovn-nbctl lsp-set-addresses public-lr0 router
 ovn-nbctl lsp-set-options public-lr0 router-port=lr0-public
+ovn-nbctl set logical_switch_port ln-sw1 tag=100
 
 # localnet port
 ovn-nbctl lsp-add public ln-public
@@ -632,6 +657,7 @@ EOF
     echo "Creating a fake VM in the host bridge ${OVN_EXT_BR}"
     ip netns add ovnfake-ext
     ovs-vsctl add-port ${OVN_EXT_BR} ovnfake-ext -- set interface ovnfake-ext type=internal
+    ovs-vsctl set port ovnfake-ext tag=100
     ip link set ovnfake-ext netns ovnfake-ext
     ip netns exec ovnfake-ext ip link set lo up
     ip netns exec ovnfake-ext ip link set ovnfake-ext address 30:54:00:00:00:50
@@ -639,6 +665,21 @@ EOF
     ip netns exec ovnfake-ext ip addr add 3000::b/64 dev ovnfake-ext
     ip netns exec ovnfake-ext ip link set ovnfake-ext up
     ip netns exec ovnfake-ext ip route add default via 172.16.0.1
+
+    echo "Creating a ext port for sw0-ext1 in the host bridge ${OVN_EXT_BR}"
+    ip netns add sw0-ext1
+    ovs-vsctl add-port ${OVN_EXT_BR} sw0-ext1 -- set interface sw0-ext1 type=internal
+    ovs-vsctl set port sw0-ext1 tag=4
+    ip link set sw0-ext1 netns sw0-ext1
+    ip netns exec sw0-ext1 ip link set lo up
+    ip netns exec sw0-ext1 ip link set sw0-ext1 address 50:54:00:00:00:10
+    ip netns exec sw0-ext1 ip addr add 10.0.0.10/24 dev sw0-ext1
+    ip netns exec sw0-ext1 ip link set sw0-ext1 up
+    ip netns exec sw0-ext1 ip route add default via 10.0.0.1
+
+    ${RUNC_CMD} exec "${CHASSIS_NAMES[0]}" ovs-vsctl set open . external_ids:ovn-chassis-mac-mappings=public:1e:02:ad:aa:bb:01
+    ${RUNC_CMD} exec "${CHASSIS_NAMES[1]}" ovs-vsctl set open . external_ids:ovn-chassis-mac-mappings=public:1e:02:ad:aa:bb:02
+    ${RUNC_CMD} exec "${GW_NAMES[0]}" ovs-vsctl set open . external_ids:ovn-chassis-mac-mappings=public:1e:02:ad:aa:bb:03
 }
 
 function set-ovn-remote() {
